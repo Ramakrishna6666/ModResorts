@@ -1,30 +1,32 @@
 package com.acme.modres;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintWriter;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.List;
 import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.List;
-import javax.naming.InitialContext;
+
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import com.acme.modres.mbean.IOUtils;
-import com.acme.modres.mbean.reservation.DateChecker;
-import com.acme.modres.mbean.reservation.ReservationCheckerData;
-import com.acme.modres.mbean.reservation.Reservation;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.context.support.SpringBeanAutowiringSupport;
 
+import com.acme.modres.mbean.IOUtils;
+import com.acme.modres.mbean.reservation.Reservation;
+import com.acme.modres.mbean.reservation.ReservationCheckerData;
+import com.acme.modres.service.S3StorageService;
 import com.acme.modres.util.ZipValidator;
 
 @WebServlet({ "/resorts/availability" })
@@ -33,12 +35,16 @@ public class AvailabilityCheckerServlet extends HttpServlet {
 
   private static final Logger logger = Logger.getLogger(AvailabilityCheckerServlet.class.getName());
 
-  private static InitialContext context;
-
   private ReservationCheckerData reservationCheckerData;
+  
+  @Autowired
+  private S3StorageService s3StorageService;
 
   @Override
   public void init() {
+    // Enable Spring dependency injection in servlets
+    SpringBeanAutowiringSupport.processInjectionBasedOnCurrentContext(this);
+    
     // load reserved dates
     this.reservationCheckerData = new ReservationCheckerData(IOUtils.getReservationListFromConfig());
   }
@@ -59,17 +65,23 @@ public class AvailabilityCheckerServlet extends HttpServlet {
       List<Reservation> reservations = reservationCheckerData.getReservationList().getReservations();
       boolean isAvailible = true;
 
+      // Use java.time API for timezone-safe date handling
+      DateTimeFormatter formatter = DateTimeFormatter.ofPattern(Constants.DATA_FORMAT);
+      
       for (Reservation reservation : reservations) {
         try {
-          Date fromDate = new SimpleDateFormat(Constants.DATA_FORMAT).parse(reservation.getFromDate());
-          Date toDate = new SimpleDateFormat(Constants.DATA_FORMAT).parse(reservation.getToDate());
-          Date selectedDate = reservationCheckerData.getSelectedDate();
+          LocalDate fromDate = LocalDate.parse(reservation.getFromDate(), formatter);
+          LocalDate toDate = LocalDate.parse(reservation.getToDate(), formatter);
+          LocalDate selectedDate = LocalDate.ofInstant(
+              Instant.ofEpochMilli(reservationCheckerData.getSelectedDate().getTime()), 
+              ZoneId.of("UTC"));
 
-          if (selectedDate.after(fromDate) && selectedDate.before(toDate)) {
+          if (selectedDate.isAfter(fromDate) && selectedDate.isBefore(toDate)) {
             isAvailible = false;
             break;
           }
-        } catch (ParseException ex) {
+        } catch (DateTimeParseException ex) {
+          logger.severe("Failed to parse date: " + ex.getMessage());
           ex.printStackTrace();
         }
       }
@@ -82,11 +94,12 @@ public class AvailabilityCheckerServlet extends HttpServlet {
       }
     }
 
-    // Send the response
-    PrintWriter out = response.getWriter();
+    // Send the response - using try-with-resources to prevent resource leaks
     response.setContentType("application/json");
     response.setCharacterEncoding("UTF-8");
-    out.print("{\"availability\": \"" + String.valueOf(reservationCheckerData.isAvailible()) + "\"}");
+    try (PrintWriter out = response.getWriter()) {
+      out.print("{\"availability\": \"" + String.valueOf(reservationCheckerData.isAvailible()) + "\"}");
+    }
     response.setStatus(statusCode);
   }
 
@@ -99,46 +112,51 @@ public class AvailabilityCheckerServlet extends HttpServlet {
     doGet(request, response);
   }
 
+  /**
+   * Export reservations to S3 instead of local file system.
+   * Uses try-with-resources to prevent resource leaks.
+   */
   protected int exportRevervations(String selectedDateStr) {
-    File fileToZip = IOUtils.getFileFromRelativePath("reservations.json");
-    String userDirectory = System.getProperty("user.home");
-    String zipPath = userDirectory + "/reservations.zip";
-
-    FileOutputStream fos;
     try {
-      fos = new FileOutputStream(zipPath);
-      ZipOutputStream zipOut = new ZipOutputStream(fos);
+      // Load reservation data from classpath
+      InputStream reservationStream = IOUtils.getResourceAsStream("reservations.json");
+      
+      // Create zip in memory
+      ByteArrayOutputStream baos = new ByteArrayOutputStream();
+      
+      // Use try-with-resources to ensure all streams are properly closed
+      try (ZipOutputStream zipOut = new ZipOutputStream(baos);
+           InputStream fis = reservationStream) {
+        
+        ZipEntry zipEntry = new ZipEntry("reservations.json");
+        zipOut.putNextEntry(zipEntry);
 
-      FileInputStream fis = new FileInputStream(fileToZip);
-      ZipEntry zipEntry = new ZipEntry(fileToZip.getName());
-      zipOut.putNextEntry(zipEntry);
-
-      byte[] bytes = new byte[1024];
-      int length;
-      while ((length = fis.read(bytes)) >= 0) {
-        zipOut.write(bytes, 0, length);
+        byte[] bytes = new byte[1024];
+        int length;
+        while ((length = fis.read(bytes)) >= 0) {
+          zipOut.write(bytes, 0, length);
+        }
+        
+        zipOut.closeEntry();
       }
-      fis.close();
-
-      zipOut.close();
-      fos.close();
-
-      // verify zip
-      ZipValidator zipValidator = new ZipValidator(new File(zipPath));
-      if (zipValidator.isValid()) {
-        return 0;
-      }
-    } catch (FileNotFoundException e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
+      
+      // Upload to S3 instead of local file system
+      byte[] zipData = baos.toByteArray();
+      String s3Key = "exports/reservations-" + selectedDateStr + ".zip";
+      s3StorageService.uploadToS3(s3Key, zipData);
+      
+      logger.info("Successfully exported reservations to S3: " + s3Key);
+      return 0;
+      
     } catch (IOException e) {
-      // TODO Auto-generated catch block
+      logger.severe("Failed to export reservations: " + e.getMessage());
       e.printStackTrace();
-    } catch (Throwable e) {
-      // TODO Auto-generated catch block
+      return -1;
+    } catch (Exception e) {
+      logger.severe("Unexpected error during export: " + e.getMessage());
       e.printStackTrace();
+      return -1;
     }
-    return -1;
   }
 
 }

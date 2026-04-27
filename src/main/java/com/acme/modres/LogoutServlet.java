@@ -4,11 +4,15 @@ import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-
-import com.ibm.websphere.security.WSSecurityHelper;
+import javax.servlet.http.HttpSession;
 
 import java.io.IOException;
 
+/**
+ * Cloud-ready logout servlet using standard session management.
+ * Replaced WebSphere-specific WSSecurityHelper with standard HttpSession.
+ * Session state is externalized to Amazon ElastiCache (Redis) via Spring Session.
+ */
 @WebServlet({ "/logout" })
 public class LogoutServlet extends HttpServlet {
   private static final long serialVersionUID = 1L;
@@ -18,7 +22,11 @@ public class LogoutServlet extends HttpServlet {
       HttpServletResponse response) throws IOException {
 
     try {
-      WSSecurityHelper.revokeSSOCookies(request, response);
+      // Use standard session invalidation instead of WebSphere-specific API
+      HttpSession session = request.getSession(false);
+      if (session != null) {
+        session.invalidate();
+      }
     } catch (Exception e) {
       System.err.println("[ERROR] Error logging out");
       e.printStackTrace();
