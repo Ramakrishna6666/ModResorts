@@ -3,13 +3,14 @@ package com.acme.modres;
 import java.io.IOException;
 import java.io.PrintWriter;
 
-import javax.servlet.ServletException;
-import javax.servlet.annotation.WebServlet;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.WebServlet;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
-import com.ibm.websphere.servlet.response.ResponseUtils;
+// WebSphere specific API removed for Java 21 compatibility
+// import com.ibm.websphere.servlet.response.ResponseUtils;
 
 @WebServlet("/resorts/upper")
 public class UpperServlet extends HttpServlet {
@@ -26,9 +27,24 @@ public class UpperServlet extends HttpServlet {
     }
 
     String newStr = originalStr.toUpperCase();
-    newStr = ResponseUtils.encodeDataString(newStr);
+    // Replaced WebSphere-specific ResponseUtils with standard HTML encoding
+    newStr = htmlEncode(newStr);
 
     PrintWriter out = response.getWriter();
     out.print("<br/><b>upper case input " + newStr + "</b>");
+  }
+  
+  /**
+   * Simple HTML encoding to replace WebSphere-specific ResponseUtils
+   */
+  private String htmlEncode(String input) {
+    if (input == null) {
+      return null;
+    }
+    return input.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#x27;");
   }
 }
