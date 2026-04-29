@@ -13,7 +13,6 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.ProtocolException;
 import java.net.URL;
-import java.util.Hashtable;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -35,8 +34,6 @@ import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectInstance;
 import javax.management.ObjectName;
 import javax.management.ReflectionException;
-import javax.naming.InitialContext;
-import javax.naming.NamingException;
 import javax.servlet.annotation.WebServlet;
 
 @WebServlet({ "/resorts/weather" })
@@ -52,8 +49,6 @@ public class WeatherServlet extends HttpServlet {
   private static final String WEATHER_API_KEY = "WEATHER_API_KEY";
 
   private static final Logger logger = Logger.getLogger(WeatherServlet.class.getName());
-
-  private static InitialContext context;
 
   MBeanServer server;
   ObjectName weatherON;
@@ -75,7 +70,6 @@ public class WeatherServlet extends HttpServlet {
     } catch (InstanceAlreadyExistsException | MBeanRegistrationException | NotCompliantMBeanException e) {
       e.printStackTrace();
     }
-    context = setInitialContextProps();
   }
 
   @Override
@@ -249,30 +243,44 @@ public class WeatherServlet extends HttpServlet {
     return "*********" + lastToKeep;
   }
 
+  /**
+   * Replaced WebSphere-specific server discovery with environment-based configuration
+   * Use environment variables for server identification in containerized environments
+   */
   private String configureEnvDiscovery() {
-
     String serverEnv = "";
-
-    serverEnv += com.ibm.websphere.runtime.ServerName.getDisplayName();
-    serverEnv += com.ibm.websphere.runtime.ServerName.getFullName();
-
+    
+    // Replace WebSphere-specific ServerName API with environment variables
+    String serverName = System.getenv("SERVER_NAME");
+    String serverDisplayName = System.getenv("SERVER_DISPLAY_NAME");
+    
+    if (serverName != null) {
+      serverEnv += serverName;
+    }
+    if (serverDisplayName != null) {
+      serverEnv += serverDisplayName;
+    }
+    
     return serverEnv;
   }
 
-  private InitialContext setInitialContextProps() {
-
-    Hashtable ht = new Hashtable();
-
-    ht.put("java.naming.factory.initial", "com.ibm.websphere.naming.WsnInitialContextFactory");
-    ht.put("java.naming.provider.url", "corbaloc:iiop:localhost:2809");
-
-    InitialContext ctx = null;
-    try {
-      ctx = new InitialContext(ht);
-    } catch (NamingException e) {
-      e.printStackTrace();
-    }
-
-    return ctx;
+  /**
+   * Removed RMI/IIOP-based InitialContext configuration
+   * For containerized environments, use REST-based service discovery or Spring Cloud
+   * This method is deprecated and should be replaced with modern service discovery patterns
+   */
+  @Deprecated
+  private void setInitialContextProps() {
+    // RMI/IIOP-based naming is not compatible with containerized environments
+    // Replace with REST-based service discovery using:
+    // - Spring Cloud with AWS Cloud Map for service discovery
+    // - Environment variables for service endpoints
+    // - HTTP-based REST APIs instead of RMI
+    
+    logger.warning("RMI-based service discovery is deprecated in containerized environments. " +
+                   "Use REST APIs with service discovery (AWS Cloud Map, Consul, etc.)");
+    
+    // For migration: Configure service endpoints via environment variables
+    // Example: String serviceUrl = System.getenv("WEATHER_SERVICE_URL");
   }
 }
