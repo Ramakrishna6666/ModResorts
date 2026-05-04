@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  modresorts:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: modresorts:latest
+    container_name: modresorts-app
+    ports:
+      - "8080:8080"
+    environment:
+      # Server Configuration
+      - SERVER_PORT=8080
+      - SERVER_NAME=modresorts-server
+      - SERVER_FULL_NAME=modresorts-server-instance-1
+      
+      # Spring Configuration
+      - SPRING_PROFILES_ACTIVE=docker
+      
+      # Redis Configuration (connect to external Redis/Memorystore)
+      - REDIS_HOST=${REDIS_HOST:-localhost}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - REDIS_TIMEOUT=${REDIS_TIMEOUT:-2000}
+      
+      # Database Configuration (connect to external database)
+      - DB_URL=${DB_URL:-jdbc:h2:mem:testdb}
+      - DB_USERNAME=${DB_USERNAME:-sa}
+      - DB_PASSWORD=${DB_PASSWORD:-}
+      - DB_DRIVER=${DB_DRIVER:-org.h2.Driver}
+      
+      # Naming Service Configuration
+      - NAMING_FACTORY_INITIAL=${NAMING_FACTORY_INITIAL:-}
+      - NAMING_PROVIDER_URL=${NAMING_PROVIDER_URL:-}
+      
+      # Weather API Configuration
+      - WEATHER_API_KEY=${WEATHER_API_KEY:-}
+      
+      # JVM Options
+      - JAVA_OPTS=-Xmx512m -Xms256m -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+networks:
+  app-network:
+    driver: bridge

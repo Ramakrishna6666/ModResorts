@@ -13,6 +13,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.version>2.0.0</project.version>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+    <spring.boot.version>2.7.18</spring.boot.version>
   </properties>
   <dependencies>
     <dependency>
@@ -21,12 +22,15 @@
       <version>7.0</version>
       <scope>provided</scope>
     </dependency>
+    <!-- Removed WebSphere-specific dependency for container portability -->
+    <!-- 
     <dependency>
       <groupId>com.ibm.websphere.appserver</groupId>
       <artifactId>was_public</artifactId>
       <version>9.0.0</version>
       <scope>provided</scope>
     </dependency>
+    -->
     <dependency>
       <groupId>com.google.code.gson</groupId>
       <artifactId>gson</artifactId>
@@ -85,6 +89,27 @@
       <version>2.9.10</version>
     </dependency>
 
+    <!-- Spring Boot Actuator for health check endpoint -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+      <version>${spring.boot.version}</version>
+    </dependency>
+
+    <!-- Spring Boot Starter Web for embedded servlet container -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+      <version>${spring.boot.version}</version>
+    </dependency>
+
+    <!-- Spring Data Redis for distributed cache support -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-redis</artifactId>
+      <version>${spring.boot.version}</version>
+    </dependency>
+
   </dependencies>
   <build>
     <plugins>
@@ -123,6 +148,11 @@
             </configuration>
           </execution>
         </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <version>${spring.boot.version}</version>
       </plugin>
     </plugins>
   </build>

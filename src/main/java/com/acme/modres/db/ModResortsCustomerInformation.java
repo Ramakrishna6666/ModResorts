@@ -1,8 +1,7 @@
 package com.acme.modres.db;
 
 import javax.annotation.Resource;
-import javax.ejb.Singleton;
-import javax.ejb.Startup;
+import javax.enterprise.context.ApplicationScoped;
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -10,8 +9,13 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 
-@Singleton
-@Startup
+/**
+ * Replaced @Singleton with @ApplicationScoped for better container compatibility.
+ * For horizontally scaled deployments, consider externalizing state to 
+ * Memorystore for Redis using Spring Data Redis to ensure consistency 
+ * across multiple container instances.
+ */
+@ApplicationScoped
 public class ModResortsCustomerInformation {
   private static final String SELECT_CUSTOMERS_QUERY = "SELECT INFO FROM CUSTOMER";
 
