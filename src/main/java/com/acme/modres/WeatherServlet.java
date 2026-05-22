@@ -5,7 +5,6 @@ import com.acme.modres.exception.ExceptionHandler;
 import com.acme.modres.mbean.AppInfo;
 
 import java.io.BufferedReader;
-
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.lang.management.ManagementFactory;
@@ -20,6 +19,7 @@ import java.util.logging.Logger;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -36,9 +36,8 @@ import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectInstance;
 import javax.management.ObjectName;
 import javax.management.ReflectionException;
-import jakarta.naming.InitialContext;
-import jakarta.naming.NamingException;
-import jakarta.servlet.annotation.WebServlet;
+import javax.naming.InitialContext;
+import javax.naming.NamingException;
 
 @WebServlet({ "/resorts/weather" })
 public class WeatherServlet extends HttpServlet {
