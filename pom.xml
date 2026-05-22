@@ -112,6 +112,13 @@
       <version>2.23.1</version>
     </dependency>
 
+    <!-- PostgreSQL JDBC Driver -->
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <version>42.7.3</version>
+    </dependency>
+
     <!-- Updated Commons Collections to secure version -->
     <dependency>
       <groupId>org.apache.commons</groupId>

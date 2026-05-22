@@ -9,29 +9,35 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 @Singleton
 @Startup
 public class ModResortsCustomerInformation {
+  private static final Logger logger = Logger.getLogger(ModResortsCustomerInformation.class.getName());
+  
+  // PostgreSQL-compatible query - using lowercase table name for PostgreSQL convention
+  // Note: If table name is case-sensitive in PostgreSQL, use "CUSTOMER" with quotes
   private static final String SELECT_CUSTOMERS_QUERY = "SELECT INFO FROM CUSTOMER";
 
   // Removing DB connection for ease of demo setup
   // @Resource(lookup = "jdbc/ModResortsJndi")
   private DataSource dataSource;
 
+  /**
+   * Retrieves customer information from PostgreSQL database.
+   * Uses try-with-resources for automatic resource management.
+   * 
+   * @return ArrayList of customer information strings
+   */
   public ArrayList<String> getCustomerInformation() {
-    Connection conn = null;
-    PreparedStatement stmt = null;
-    ResultSet rs = null;
     ArrayList<String> customerInfo = new ArrayList<>();
 
-    try {
-      // Get a connection from the injected data source
-      conn = dataSource.getConnection();
-      // Create a prepared statement
-      stmt = conn.prepareStatement(SELECT_CUSTOMERS_QUERY);
-      // Execute the query
-      rs = stmt.executeQuery();
+    // Try-with-resources ensures proper cleanup of database resources
+    try (Connection conn = dataSource.getConnection();
+         PreparedStatement stmt = conn.prepareStatement(SELECT_CUSTOMERS_QUERY);
+         ResultSet rs = stmt.executeQuery()) {
 
       // Process the results
       while (rs.next()) {
@@ -39,21 +45,24 @@ public class ModResortsCustomerInformation {
         customerInfo.add(info);
       }
 
+      logger.log(Level.INFO, "Successfully retrieved {0} customer records from PostgreSQL", 
+                 customerInfo.size());
+
     } catch (SQLException e) {
-      e.printStackTrace();
-    } finally {
-      // Close the result set, statement, and connection
-      try {
-        if (rs != null)
-          rs.close();
-        if (stmt != null)
-          stmt.close();
-        if (conn != null)
-          conn.close();
-      } catch (SQLException e) {
-        e.printStackTrace();
-      }
+      logger.log(Level.SEVERE, "Error retrieving customer information from PostgreSQL database", e);
+      // In production, consider throwing a custom exception or returning empty list
+      // throw new DatabaseAccessException("Failed to retrieve customer information", e);
     }
+    
     return customerInfo;
+  }
+  
+  /**
+   * Sets the DataSource for testing purposes.
+   * 
+   * @param dataSource the DataSource to use
+   */
+  public void setDataSource(DataSource dataSource) {
+    this.dataSource = dataSource;
   }
 }
