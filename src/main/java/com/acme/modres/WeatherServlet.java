@@ -13,31 +13,32 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.ProtocolException;
 import java.net.URL;
-import java.util.Hashtable;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import javax.servlet.ServletException;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
-import javax.inject.Inject;
-import javax.management.InstanceAlreadyExistsException;
-import javax.management.InstanceNotFoundException;
-import javax.management.IntrospectionException;
-import javax.management.MBeanInfo;
-import javax.management.MBeanRegistrationException;
-import javax.management.MBeanServer;
-import javax.management.MalformedObjectNameException;
-import javax.management.NotCompliantMBeanException;
-import javax.management.ObjectInstance;
-import javax.management.ObjectName;
-import javax.management.ReflectionException;
-import javax.naming.InitialContext;
-import javax.naming.NamingException;
-import javax.servlet.annotation.WebServlet;
+import jakarta.inject.Inject;
+import jakarta.management.InstanceAlreadyExistsException;
+import jakarta.management.InstanceNotFoundException;
+import jakarta.management.IntrospectionException;
+import jakarta.management.MBeanInfo;
+import jakarta.management.MBeanRegistrationException;
+import jakarta.management.MBeanServer;
+import jakarta.management.MalformedObjectNameException;
+import jakarta.management.NotCompliantMBeanException;
+import jakarta.management.ObjectInstance;
+import jakarta.management.ObjectName;
+import jakarta.management.ReflectionException;
+import jakarta.naming.InitialContext;
+import jakarta.naming.NamingException;
+import jakarta.servlet.annotation.WebServlet;
 
 @WebServlet({ "/resorts/weather" })
 public class WeatherServlet extends HttpServlet {
@@ -250,25 +251,25 @@ public class WeatherServlet extends HttpServlet {
   }
 
   private String configureEnvDiscovery() {
-
+    // Removed WebSphere-specific ServerName API
+    // Return generic server information instead
     String serverEnv = "";
-
-    serverEnv += com.ibm.websphere.runtime.ServerName.getDisplayName();
-    serverEnv += com.ibm.websphere.runtime.ServerName.getFullName();
-
+    serverEnv += "Server: " + System.getProperty("java.vm.name");
+    serverEnv += " Version: " + System.getProperty("java.version");
     return serverEnv;
   }
 
   private InitialContext setInitialContextProps() {
-
-    Hashtable ht = new Hashtable();
-
-    ht.put("java.naming.factory.initial", "com.ibm.websphere.naming.WsnInitialContextFactory");
-    ht.put("java.naming.provider.url", "corbaloc:iiop:localhost:2809");
+    // Replace Hashtable with HashMap for better type safety
+    Map<String, String> env = new HashMap<>();
+    
+    // Generic JNDI properties (not WebSphere-specific)
+    env.put("java.naming.factory.initial", "org.apache.naming.java.javaURLContextFactory");
+    env.put("java.naming.provider.url", "localhost");
 
     InitialContext ctx = null;
     try {
-      ctx = new InitialContext(ht);
+      ctx = new InitialContext();
     } catch (NamingException e) {
       e.printStackTrace();
     }

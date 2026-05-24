@@ -3,7 +3,7 @@ package com.acme.modres.mbean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import javax.management.MBeanOperationInfo;
+import jakarta.management.MBeanOperationInfo;
 
 public final class DMBeanUtils {
   private static final Logger logger = Logger.getLogger(DMBeanUtils.class.getName());

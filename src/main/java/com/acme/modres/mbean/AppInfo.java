@@ -1,17 +1,17 @@
 package com.acme.modres.mbean;
 
-import javax.management.Attribute;
-import javax.management.AttributeList;
-import javax.management.AttributeNotFoundException;
-import javax.management.DynamicMBean;
-import javax.management.InvalidAttributeValueException;
-import javax.management.MBeanAttributeInfo;
-import javax.management.MBeanConstructorInfo;
-import javax.management.MBeanException;
-import javax.management.MBeanInfo;
-import javax.management.MBeanNotificationInfo;
-import javax.management.MBeanOperationInfo;
-import javax.management.ReflectionException;
+import jakarta.management.Attribute;
+import jakarta.management.AttributeList;
+import jakarta.management.AttributeNotFoundException;
+import jakarta.management.DynamicMBean;
+import jakarta.management.InvalidAttributeValueException;
+import jakarta.management.MBeanAttributeInfo;
+import jakarta.management.MBeanConstructorInfo;
+import jakarta.management.MBeanException;
+import jakarta.management.MBeanInfo;
+import jakarta.management.MBeanNotificationInfo;
+import jakarta.management.MBeanOperationInfo;
+import jakarta.management.ReflectionException;
 
 public class AppInfo implements DynamicMBean {
 

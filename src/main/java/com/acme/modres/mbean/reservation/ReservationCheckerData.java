@@ -1,13 +1,15 @@
 package com.acme.modres.mbean.reservation;
 
-import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.Date;
 
 import com.acme.modres.Constants;
 
 public class ReservationCheckerData {
   private ReservationList reservations;
-  private Date selectedDate;
+  private LocalDate selectedDate;
   private boolean available; // changed from Boolean to boolean
 
   public ReservationCheckerData(ReservationList reservations) {
@@ -19,14 +21,24 @@ public class ReservationCheckerData {
     return reservations;
   }
 
-  public Date getSelectedDate() {
+  public LocalDate getSelectedLocalDate() {
     return selectedDate;
+  }
+  
+  // Deprecated method for backward compatibility
+  @Deprecated
+  public Date getSelectedDate() {
+    if (selectedDate == null) {
+      return null;
+    }
+    return java.sql.Date.valueOf(selectedDate);
   }
 
   public boolean setSelectedDate(String dateStr) {
     try {
-      selectedDate = new SimpleDateFormat(Constants.DATA_FORMAT).parse(dateStr);
-    } catch (Exception e) {
+      DateTimeFormatter formatter = DateTimeFormatter.ofPattern(Constants.DATA_FORMAT);
+      selectedDate = LocalDate.parse(dateStr, formatter);
+    } catch (DateTimeParseException e) {
       return false;
     }
     return true;
