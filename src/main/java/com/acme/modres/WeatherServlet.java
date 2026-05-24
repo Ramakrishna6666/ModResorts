@@ -25,19 +25,19 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import jakarta.inject.Inject;
-import jakarta.management.InstanceAlreadyExistsException;
-import jakarta.management.InstanceNotFoundException;
-import jakarta.management.IntrospectionException;
-import jakarta.management.MBeanInfo;
-import jakarta.management.MBeanRegistrationException;
-import jakarta.management.MBeanServer;
-import jakarta.management.MalformedObjectNameException;
-import jakarta.management.NotCompliantMBeanException;
-import jakarta.management.ObjectInstance;
-import jakarta.management.ObjectName;
-import jakarta.management.ReflectionException;
-import jakarta.naming.InitialContext;
-import jakarta.naming.NamingException;
+import javax.management.InstanceAlreadyExistsException;
+import javax.management.InstanceNotFoundException;
+import javax.management.IntrospectionException;
+import javax.management.MBeanInfo;
+import javax.management.MBeanRegistrationException;
+import javax.management.MBeanServer;
+import javax.management.MalformedObjectNameException;
+import javax.management.NotCompliantMBeanException;
+import javax.management.ObjectInstance;
+import javax.management.ObjectName;
+import javax.management.ReflectionException;
+import javax.naming.InitialContext;
+import javax.naming.NamingException;
 import jakarta.servlet.annotation.WebServlet;
 
 @WebServlet({ "/resorts/weather" })
