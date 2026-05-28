@@ -1,18 +1,14 @@
 package com.acme.modres;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintWriter;
-import java.util.logging.Logger;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.util.logging.Logger;
+
 import javax.naming.InitialContext;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -21,11 +17,13 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import com.acme.modres.mbean.IOUtils;
-import com.acme.modres.mbean.reservation.DateChecker;
-import com.acme.modres.mbean.reservation.ReservationCheckerData;
 import com.acme.modres.mbean.reservation.Reservation;
+import com.acme.modres.mbean.reservation.ReservationCheckerData;
 
-import com.acme.modres.util.ZipValidator;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 @WebServlet({ "/resorts/availability" })
 public class AvailabilityCheckerServlet extends HttpServlet {
@@ -36,6 +34,10 @@ public class AvailabilityCheckerServlet extends HttpServlet {
   private static InitialContext context;
 
   private ReservationCheckerData reservationCheckerData;
+  
+  // S3 configuration from environment variables
+  private static final String S3_BUCKET_NAME = System.getenv().getOrDefault("S3_BUCKET_NAME", "modresorts-data");
+  private static final String S3_REGION = System.getenv().getOrDefault("AWS_REGION", "us-east-1");
 
   @Override
   public void init() {
@@ -59,17 +61,20 @@ public class AvailabilityCheckerServlet extends HttpServlet {
       List<Reservation> reservations = reservationCheckerData.getReservationList().getReservations();
       boolean isAvailible = true;
 
+      DateTimeFormatter formatter = DateTimeFormatter.ofPattern(Constants.DATA_FORMAT);
+      
       for (Reservation reservation : reservations) {
         try {
-          Date fromDate = new SimpleDateFormat(Constants.DATA_FORMAT).parse(reservation.getFromDate());
-          Date toDate = new SimpleDateFormat(Constants.DATA_FORMAT).parse(reservation.getToDate());
-          Date selectedDate = reservationCheckerData.getSelectedDate();
+          LocalDate fromDate = LocalDate.parse(reservation.getFromDate(), formatter);
+          LocalDate toDate = LocalDate.parse(reservation.getToDate(), formatter);
+          LocalDate selectedDate = reservationCheckerData.getSelectedDate();
 
-          if (selectedDate.after(fromDate) && selectedDate.before(toDate)) {
+          if (selectedDate.isAfter(fromDate) && selectedDate.isBefore(toDate)) {
             isAvailible = false;
             break;
           }
-        } catch (ParseException ex) {
+        } catch (DateTimeParseException ex) {
+          logger.severe("Failed to parse date: " + ex.getMessage());
           ex.printStackTrace();
         }
       }
@@ -99,46 +104,65 @@ public class AvailabilityCheckerServlet extends HttpServlet {
     doGet(request, response);
   }
 
+  /**
+   * Export reservations to Amazon S3 instead of local file system
+   */
   protected int exportRevervations(String selectedDateStr) {
-    File fileToZip = IOUtils.getFileFromRelativePath("reservations.json");
-    String userDirectory = System.getProperty("user.home");
-    String zipPath = userDirectory + "/reservations.zip";
-
-    FileOutputStream fos;
+    S3Client s3Client = null;
+    InputStream resourceStream = null;
+    
     try {
-      fos = new FileOutputStream(zipPath);
-      ZipOutputStream zipOut = new ZipOutputStream(fos);
-
-      FileInputStream fis = new FileInputStream(fileToZip);
-      ZipEntry zipEntry = new ZipEntry(fileToZip.getName());
-      zipOut.putNextEntry(zipEntry);
-
-      byte[] bytes = new byte[1024];
-      int length;
-      while ((length = fis.read(bytes)) >= 0) {
-        zipOut.write(bytes, 0, length);
+      // Initialize S3 client
+      s3Client = S3Client.builder()
+          .region(software.amazon.awssdk.regions.Region.of(S3_REGION))
+          .build();
+      
+      // Get reservation data from classpath resource
+      resourceStream = IOUtils.class.getClassLoader().getResourceAsStream("reservations.json");
+      
+      if (resourceStream == null) {
+        logger.severe("reservations.json not found in classpath");
+        return -1;
       }
-      fis.close();
-
-      zipOut.close();
-      fos.close();
-
-      // verify zip
-      ZipValidator zipValidator = new ZipValidator(new File(zipPath));
-      if (zipValidator.isValid()) {
-        return 0;
-      }
-    } catch (FileNotFoundException e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
+      
+      // Read the resource content
+      byte[] content = new byte[resourceStream.available()];
+      resourceStream.read(content);
+      
+      // Upload to S3
+      String s3Key = "exports/reservations-" + selectedDateStr + ".json";
+      PutObjectRequest putRequest = PutObjectRequest.builder()
+          .bucket(S3_BUCKET_NAME)
+          .key(s3Key)
+          .contentType("application/json")
+          .build();
+      
+      s3Client.putObject(putRequest, RequestBody.fromBytes(content));
+      
+      logger.info("Successfully exported reservations to S3: s3://" + S3_BUCKET_NAME + "/" + s3Key);
+      return 0;
+      
     } catch (IOException e) {
-      // TODO Auto-generated catch block
+      logger.severe("IOException during export: " + e.getMessage());
       e.printStackTrace();
-    } catch (Throwable e) {
-      // TODO Auto-generated catch block
+      return -1;
+    } catch (Exception e) {
+      logger.severe("Exception during S3 export: " + e.getMessage());
       e.printStackTrace();
+      return -1;
+    } finally {
+      // Properly close resources using try-with-resources pattern
+      if (resourceStream != null) {
+        try {
+          resourceStream.close();
+        } catch (IOException e) {
+          logger.warning("Failed to close resource stream: " + e.getMessage());
+        }
+      }
+      if (s3Client != null) {
+        s3Client.close();
+      }
     }
-    return -1;
   }
 
 }

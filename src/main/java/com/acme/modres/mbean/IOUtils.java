@@ -1,51 +1,67 @@
 package com.acme.modres.mbean;
 
-import java.io.File;
-import java.io.FileOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 
 import com.acme.modres.mbean.reservation.ReservationList;
 import com.acme.modres.util.JsonInputStream;
 
+import software.amazon.awssdk.core.ResponseInputStream;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
+
 public final class IOUtils {
 
-  public static File getFileFromRelativePath(String path) {
-    File file = null;
-    InputStream initialStream = null;
-    OutputStream outStream = null;
-    try {
-      initialStream = IOUtils.class.getClassLoader().getResourceAsStream(path);
-      byte[] buffer = new byte[initialStream.available()];
-      initialStream.read(buffer);
+  // S3 configuration from environment variables
+  private static final String S3_BUCKET_NAME = System.getenv().getOrDefault("S3_BUCKET_NAME", "modresorts-data");
+  private static final String S3_REGION = System.getenv().getOrDefault("AWS_REGION", "us-east-1");
+  private static final boolean USE_S3 = Boolean.parseBoolean(System.getenv().getOrDefault("USE_S3_STORAGE", "false"));
 
-      file = File.createTempFile(path, null);
-      outStream = new FileOutputStream(file);
-      outStream.write(buffer);
-      outStream.close();
+  /**
+   * Get input stream from classpath resource or S3
+   * This eliminates the need for temporary file creation
+   */
+  public static InputStream getInputStreamFromResource(String path) {
+    InputStream stream = null;
+    
+    try {
+      if (USE_S3) {
+        // Load from S3
+        S3Client s3Client = S3Client.builder()
+            .region(software.amazon.awssdk.regions.Region.of(S3_REGION))
+            .build();
+        
+        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+            .bucket(S3_BUCKET_NAME)
+            .key("config/" + path)
+            .build();
+        
+        ResponseInputStream<GetObjectResponse> s3Object = s3Client.getObject(getObjectRequest);
+        
+        // Read S3 content into byte array to return as ByteArrayInputStream
+        byte[] content = s3Object.readAllBytes();
+        stream = new ByteArrayInputStream(content);
+        
+        s3Object.close();
+        s3Client.close();
+      } else {
+        // Load from classpath (default for local development)
+        stream = IOUtils.class.getClassLoader().getResourceAsStream(path);
+      }
     } catch (Exception e) {
       e.printStackTrace();
-    } finally {
-      if (initialStream != null) {
-        try {
-          initialStream.close();
-        } catch (IOException e) {
-        }
-      } else if (outStream != null) {
-        try {
-          outStream.close();
-        } catch (IOException e) {
-        }
-      }
+      // Fallback to classpath if S3 fails
+      stream = IOUtils.class.getClassLoader().getResourceAsStream(path);
     }
-
-    return file;
+    
+    return stream;
   }
 
   public static OpMetadataList getOpListFromConfig() {
-    File file = getFileFromRelativePath("ops.json"); // fix hardcoded paths
-    try (JsonInputStream is = new JsonInputStream(file)) {
+    try (InputStream stream = getInputStreamFromResource("ops.json");
+         JsonInputStream is = new JsonInputStream(stream)) {
       OpMetadataList opList = new OpMetadataList(); // empty default
       opList = (OpMetadataList) is.parseJsonAs(OpMetadataList.class);
       return opList;
@@ -56,8 +72,8 @@ public final class IOUtils {
   }
 
   public static ReservationList getReservationListFromConfig() {
-    File file = getFileFromRelativePath("reservations.json"); // fix hardcoded paths
-    try (JsonInputStream is = new JsonInputStream(file)) {
+    try (InputStream stream = getInputStreamFromResource("reservations.json");
+         JsonInputStream is = new JsonInputStream(stream)) {
       ReservationList reservationList = new ReservationList(); // empty default
       reservationList = (ReservationList) is.parseJsonAs(ReservationList.class);
       return reservationList;
