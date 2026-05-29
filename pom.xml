@@ -194,6 +194,16 @@
               <goal>copy-resources</goal>
             </goals>
             <configuration>
+              <outputDirectory>${project.build.directory}</outputDirectory>
+              <resources>
+                <resource>
+                  <directory>src/main/resources</directory>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
       
       <!-- JaCoCo Maven Plugin for Code Coverage -->
       <plugin>
@@ -212,11 +222,6 @@
             <goals>
               <goal>report</goal>
             </goals>
-          </execution>
-        </executions>
-      </plugin>
-      
-            </configuration>
           </execution>
         </executions>
       </plugin>
