@@ -5,7 +5,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import com.ibm.websphere.security.WSSecurityHelper;
+// Replaced WebSphere-specific com.ibm.websphere.security.WSSecurityHelper with standard servlet session invalidation (blocker-1, blocker-6)
 
 import java.io.IOException;
 
@@ -18,7 +18,11 @@ public class LogoutServlet extends HttpServlet {
       HttpServletResponse response) throws IOException {
 
     try {
-      WSSecurityHelper.revokeSSOCookies(request, response);
+      // Replaced WSSecurityHelper.revokeSSOCookies() with standard HttpSession invalidation
+      // for container-native deployment on AWS ECS/EKS (blocker-1, blocker-6)
+      if (request.getSession(false) != null) {
+        request.getSession(false).invalidate();
+      }
     } catch (Exception e) {
       System.err.println("[ERROR] Error logging out");
       e.printStackTrace();

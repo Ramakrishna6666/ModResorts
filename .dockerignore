@@ -1,0 +1,48 @@
+# Java / Maven build artifacts
+target/
+*.class
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+LICENSE
+CODEOWNERS
+CONTRIBUTING.md
+
+# Maven wrapper - NEVER include in Docker build
+mvnw
+mvnw.cmd
+.mvn/
+
+# Gradle wrapper - NEVER include in Docker build
+gradlew
+gradlew.bat
+gradle/
+build.gradle.hideme
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.classpath
+.project
+.settings/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Migration bundle
+migration-bundle/
+
+# Test output
+surefire-reports/
