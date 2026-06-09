@@ -5,7 +5,6 @@ import com.acme.modres.exception.ExceptionHandler;
 import com.acme.modres.mbean.AppInfo;
 
 import java.io.BufferedReader;
-
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.lang.management.ManagementFactory;
@@ -39,6 +38,11 @@ import javax.naming.InitialContext;
 import javax.naming.NamingException;
 import javax.servlet.annotation.WebServlet;
 
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
+import software.amazon.awssdk.services.secretsmanager.model.GetSecretValueRequest;
+import software.amazon.awssdk.services.secretsmanager.model.GetSecretValueResponse;
+
 @WebServlet({ "/resorts/weather" })
 public class WeatherServlet extends HttpServlet {
   private static final long serialVersionUID = 1L;
@@ -46,10 +50,9 @@ public class WeatherServlet extends HttpServlet {
   @Inject
   private ModResortsCustomerInformation customerInfo;
 
-  // local OS environment variable key name. The key value should provide an API
-  // key that will be used to
-  // get weather information from site: http://www.wunderground.com
-  private static final String WEATHER_API_KEY = "WEATHER_API_KEY";
+  // AWS Secrets Manager configuration
+  private static final String WEATHER_API_KEY_SECRET_NAME = System.getenv().getOrDefault("WEATHER_API_KEY_SECRET_NAME", "modresorts/weather-api-key");
+  private static final String AWS_REGION = System.getenv().getOrDefault("AWS_REGION", "us-east-1");
 
   private static final Logger logger = Logger.getLogger(WeatherServlet.class.getName());
 
@@ -106,7 +109,8 @@ public class WeatherServlet extends HttpServlet {
     String city = request.getParameter("selectedCity");
     logger.log(Level.FINE, "requested city is " + city);
 
-    String weatherAPIKey = System.getenv(WEATHER_API_KEY);
+    // Retrieve API key from AWS Secrets Manager instead of environment variable
+    String weatherAPIKey = getSecretFromSecretsManager(WEATHER_API_KEY_SECRET_NAME);
     String mockedKey = mockKey(weatherAPIKey);
     logger.log(Level.FINE, "weatherAPIKey is " + mockedKey);
 
@@ -117,6 +121,34 @@ public class WeatherServlet extends HttpServlet {
       logger.info(
           "weatherAPIKey is not found, will provide the weather data dated August 10th, 2018 for the city " + city);
       getDefaultWeatherData(city, response);
+    }
+  }
+
+  /**
+   * Retrieve secret from AWS Secrets Manager
+   */
+  private String getSecretFromSecretsManager(String secretName) {
+    try (SecretsManagerClient secretsClient = SecretsManagerClient.builder()
+        .region(Region.of(AWS_REGION))
+        .build()) {
+      
+      GetSecretValueRequest getSecretValueRequest = GetSecretValueRequest.builder()
+          .secretId(secretName)
+          .build();
+      
+      GetSecretValueResponse getSecretValueResponse = secretsClient.getSecretValue(getSecretValueRequest);
+      
+      if (getSecretValueResponse.secretString() != null) {
+        return getSecretValueResponse.secretString();
+      }
+      
+      logger.warning("Secret " + secretName + " not found or is empty");
+      return null;
+      
+    } catch (Exception e) {
+      logger.warning("Failed to retrieve secret from AWS Secrets Manager: " + e.getMessage());
+      // Fallback to environment variable for local development
+      return System.getenv("WEATHER_API_KEY");
     }
   }
 
