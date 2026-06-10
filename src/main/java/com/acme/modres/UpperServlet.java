@@ -2,6 +2,8 @@ package com.acme.modres;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -9,7 +11,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import com.ibm.websphere.servlet.response.ResponseUtils;
+import org.springframework.web.util.HtmlUtils;
 
 @WebServlet("/resorts/upper")
 public class UpperServlet extends HttpServlet {
@@ -26,7 +28,8 @@ public class UpperServlet extends HttpServlet {
     }
 
     String newStr = originalStr.toUpperCase();
-    newStr = ResponseUtils.encodeDataString(newStr);
+    // Replace WebSphere-specific ResponseUtils with Spring's HtmlUtils for XSS protection
+    newStr = HtmlUtils.htmlEscape(newStr);
 
     PrintWriter out = response.getWriter();
     out.print("<br/><b>upper case input " + newStr + "</b>");
