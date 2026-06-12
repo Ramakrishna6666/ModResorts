@@ -1,0 +1,271 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PostgreSQL JNDI DataSource Configuration Examples
+  
+  This file provides configuration examples for various Jakarta EE application servers.
+  Choose the appropriate configuration for your target server.
+-->
+
+<!-- ========================================
+     WildFly / JBoss EAP Configuration
+     ======================================== -->
+<!--
+  File: standalone.xml or domain.xml
+  Location: $JBOSS_HOME/standalone/configuration/
+-->
+<datasources xmlns="urn:jboss:domain:datasources:6.0">
+    <datasource jndi-name="java:jboss/datasources/ModResortsDS" 
+                pool-name="ModResortsPool" 
+                enabled="true" 
+                use-java-context="true">
+        <connection-url>jdbc:postgresql://localhost:5432/modresorts</connection-url>
+        <driver>postgresql</driver>
+        <security>
+            <user-name>postgres</user-name>
+            <password>postgres</password>
+        </security>
+        <validation>
+            <valid-connection-checker class-name="org.jboss.jca.adapters.jdbc.extensions.postgres.PostgreSQLValidConnectionChecker"/>
+            <exception-sorter class-name="org.jboss.jca.adapters.jdbc.extensions.postgres.PostgreSQLExceptionSorter"/>
+        </validation>
+        <pool>
+            <min-pool-size>5</min-pool-size>
+            <max-pool-size>20</max-pool-size>
+            <prefill>true</prefill>
+        </pool>
+        <timeout>
+            <idle-timeout-minutes>10</idle-timeout-minutes>
+        </timeout>
+        <statement>
+            <prepared-statement-cache-size>32</prepared-statement-cache-size>
+        </statement>
+    </datasource>
+    
+    <drivers>
+        <driver name="postgresql" module="org.postgresql">
+            <xa-datasource-class>org.postgresql.xa.PGXADataSource</xa-datasource-class>
+        </driver>
+    </drivers>
+</datasources>
+
+<!-- ========================================
+     Apache Tomcat Configuration
+     ======================================== -->
+<!--
+  File: context.xml or server.xml
+  Location: $CATALINA_HOME/conf/
+-->
+<Context>
+    <Resource name="jdbc/ModResortsJndi"
+              auth="Container"
+              type="javax.sql.DataSource"
+              driverClassName="org.postgresql.Driver"
+              url="jdbc:postgresql://localhost:5432/modresorts"
+              username="postgres"
+              password="postgres"
+              maxTotal="20"
+              maxIdle="10"
+              minIdle="5"
+              maxWaitMillis="10000"
+              testOnBorrow="true"
+              validationQuery="SELECT 1"
+              removeAbandonedOnBorrow="true"
+              removeAbandonedTimeout="60"
+              logAbandoned="true"/>
+</Context>
+
+<!-- ========================================
+     GlassFish / Payara Configuration
+     ======================================== -->
+<!--
+  Configure via Admin Console or asadmin CLI:
+  
+  1. Create JDBC Connection Pool:
+  asadmin create-jdbc-connection-pool \
+    --datasourceclassname org.postgresql.ds.PGSimpleDataSource \
+    --restype javax.sql.DataSource \
+    --property user=postgres:password=postgres:serverName=localhost:portNumber=5432:databaseName=modresorts \
+    ModResortsPool
+  
+  2. Create JDBC Resource:
+  asadmin create-jdbc-resource \
+    --connectionpoolid ModResortsPool \
+    jdbc/ModResortsJndi
+  
+  3. Ping to test:
+  asadmin ping-connection-pool ModResortsPool
+-->
+
+<!-- ========================================
+     Open Liberty Configuration
+     ======================================== -->
+<!--
+  File: server.xml
+  Location: $WLP_HOME/usr/servers/[server-name]/
+-->
+<server>
+    <!-- PostgreSQL JDBC Driver Library -->
+    <library id="PostgreSQLLib">
+        <fileset dir="${shared.resource.dir}/postgresql" includes="postgresql-42.7.1.jar"/>
+    </library>
+    
+    <!-- DataSource Configuration -->
+    <dataSource id="ModResortsDS" jndiName="jdbc/ModResortsJndi">
+        <jdbcDriver libraryRef="PostgreSQLLib"/>
+        <properties.postgresql 
+            serverName="localhost"
+            portNumber="5432"
+            databaseName="modresorts"
+            user="postgres"
+            password="postgres"
+            currentSchema="public"/>
+        <connectionManager 
+            maxPoolSize="20"
+            minPoolSize="5"
+            connectionTimeout="30s"
+            maxIdleTime="10m"
+            reapTime="3m"
+            agedTimeout="30m"/>
+    </dataSource>
+</server>
+
+<!-- ========================================
+     WebLogic Configuration
+     ======================================== -->
+<!--
+  Configure via WebLogic Admin Console:
+  
+  1. Domain > Services > Data Sources > New > Generic Data Source
+  2. Name: ModResortsDS
+  3. JNDI Name: jdbc/ModResortsJndi
+  4. Database Type: PostgreSQL
+  5. Database Driver: PostgreSQL's Driver (Thin) for Instance connections
+  6. Connection Properties:
+     - Database Name: modresorts
+     - Host Name: localhost
+     - Port: 5432
+     - Database User Name: postgres
+     - Password: postgres
+  7. Test Configuration
+  8. Target to appropriate server/cluster
+-->
+
+<!-- ========================================
+     Spring Boot Configuration (Alternative)
+     ======================================== -->
+<!--
+  File: application.properties or application.yml
+  Location: src/main/resources/
+-->
+<!--
+# application.properties
+spring.datasource.url=jdbc:postgresql://localhost:5432/modresorts
+spring.datasource.username=postgres
+spring.datasource.password=postgres
+spring.datasource.driver-class-name=org.postgresql.Driver
+
+# HikariCP Configuration
+spring.datasource.hikari.maximum-pool-size=20
+spring.datasource.hikari.minimum-idle=5
+spring.datasource.hikari.connection-timeout=30000
+spring.datasource.hikari.idle-timeout=600000
+spring.datasource.hikari.max-lifetime=1800000
+spring.datasource.hikari.pool-name=ModResortsHikariPool
+
+# PostgreSQL-specific
+spring.datasource.hikari.data-source-properties.cachePrepStmts=true
+spring.datasource.hikari.data-source-properties.prepStmtCacheSize=250
+spring.datasource.hikari.data-source-properties.prepStmtCacheSqlLimit=2048
+spring.datasource.hikari.data-source-properties.useServerPrepStmts=true
+
+# JPA/Hibernate Configuration (if using)
+spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect
+spring.jpa.hibernate.ddl-auto=validate
+spring.jpa.show-sql=false
+spring.jpa.properties.hibernate.format_sql=true
+spring.jpa.properties.hibernate.jdbc.time_zone=UTC
+-->
+
+<!-- ========================================
+     Docker Compose Configuration
+     ======================================== -->
+<!--
+  File: docker-compose.yml
+  For local development and testing
+-->
+<!--
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: modresorts-postgres
+    environment:
+      POSTGRES_DB: modresorts
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./src/main/resources/postgresql-init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - modresorts-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: modresorts-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@modresorts.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    networks:
+      - modresorts-network
+    depends_on:
+      - postgres
+
+volumes:
+  postgres-data:
+
+networks:
+  modresorts-network:
+    driver: bridge
+-->
+
+<!-- ========================================
+     Environment-Specific Configuration
+     ======================================== -->
+<!--
+  Use environment variables for sensitive data:
+  
+  DB_HOST=localhost
+  DB_PORT=5432
+  DB_NAME=modresorts
+  DB_USER=postgres
+  DB_PASSWORD=postgres
+  
+  Then reference in configuration:
+  jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
+-->
+
+<!-- ========================================
+     SSL/TLS Configuration for Production
+     ======================================== -->
+<!--
+  For secure connections, add SSL parameters:
+  
+  jdbc:postgresql://localhost:5432/modresorts?ssl=true&sslmode=require
+  
+  Additional SSL properties:
+  - sslmode: disable, allow, prefer, require, verify-ca, verify-full
+  - sslcert: path to client certificate
+  - sslkey: path to client key
+  - sslrootcert: path to root certificate
+-->
