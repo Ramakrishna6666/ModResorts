@@ -28,8 +28,7 @@ public class JsonInputStream extends FileInputStream {
         BufferedReader reader = new BufferedReader(new InputStreamReader(is));
         jsonObject = gson.fromJson(reader, cls);
       } catch (Exception e) {
-        e.printStackTrace();
-      } catch (Throwable e) {
+        // Replace catching Throwable with Exception
         e.printStackTrace();
       } finally {
         if (is != null) {
@@ -39,8 +38,6 @@ public class JsonInputStream extends FileInputStream {
           } catch (IOException e) {
             // closed successfully
             return jsonObject;
-          } catch (Throwable e) {
-            e.printStackTrace();
           }
         }
       }

@@ -16,7 +16,7 @@ public class ZipValidator extends ZipFile {
 
   private File file;
 
-  public boolean isValid() throws Throwable {
+  public boolean isValid() throws IOException {
     if (file.exists()) {
       ZipValidator zipFile = new ZipValidator(file);
       Enumeration<? extends ZipEntry> entries = zipFile.entries();
