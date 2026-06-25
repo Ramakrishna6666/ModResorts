@@ -5,7 +5,6 @@ import com.acme.modres.exception.ExceptionHandler;
 import com.acme.modres.mbean.AppInfo;
 
 import java.io.BufferedReader;
-
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.lang.management.ManagementFactory;
@@ -17,13 +16,13 @@ import java.util.Hashtable;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import javax.servlet.ServletException;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 import javax.management.InstanceAlreadyExistsException;
 import javax.management.InstanceNotFoundException;
 import javax.management.IntrospectionException;
@@ -35,9 +34,9 @@ import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectInstance;
 import javax.management.ObjectName;
 import javax.management.ReflectionException;
-import javax.naming.InitialContext;
-import javax.naming.NamingException;
-import javax.servlet.annotation.WebServlet;
+import jakarta.naming.InitialContext;
+import jakarta.naming.NamingException;
+import jakarta.servlet.annotation.WebServlet;
 
 @WebServlet({ "/resorts/weather" })
 public class WeatherServlet extends HttpServlet {
@@ -166,11 +165,10 @@ public class WeatherServlet extends HttpServlet {
 
     if (responseCode >= 200 && responseCode < 300) {
 
-      BufferedReader in = null;
-      ServletOutputStream out = null;
-
-      try {
-        in = new BufferedReader(new InputStreamReader(con.getInputStream()));
+      // Using try-with-resources for automatic resource management
+      try (BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
+           ServletOutputStream out = response.getOutputStream()) {
+        
         String inputLine = null;
         StringBuffer responseStr = new StringBuffer();
 
@@ -179,21 +177,11 @@ public class WeatherServlet extends HttpServlet {
         }
 
         response.setContentType("application/json");
-        out = response.getOutputStream();
         out.print(responseStr.toString());
         logger.log(Level.FINE, "responseStr: " + responseStr);
       } catch (Exception e) {
         String errorMsg = "Problem occured when processing the weather server response.";
         ExceptionHandler.handleException(e, errorMsg, logger);
-      } finally {
-        if (in != null) {
-          in.close();
-        }
-        if (out != null) {
-          out.close();
-        }
-        in = null;
-        out = null;
       }
     } else {
       String errorMsg = "REST API call " + resturl + " returns an error response: " + responseCode;
@@ -211,24 +199,15 @@ public class WeatherServlet extends HttpServlet {
       ExceptionHandler.handleException(e, e.getMessage(), logger);
     }
 
-    ServletOutputStream out = null;
-
-    try {
+    // Using try-with-resources for automatic resource management
+    try (ServletOutputStream out = response.getOutputStream()) {
       String responseStr = defaultWeatherData.getDefaultWeatherData();
       response.setContentType("application/json");
-      out = response.getOutputStream();
       out.print(responseStr.toString());
       logger.log(Level.FINEST, "responseStr: " + responseStr);
     } catch (Exception e) {
       String errorMsg = "Problem occured when getting the default weather data.";
       ExceptionHandler.handleException(e, errorMsg, logger);
-    } finally {
-
-      if (out != null) {
-        out.close();
-      }
-
-      out = null;
     }
   }
 
@@ -250,21 +229,21 @@ public class WeatherServlet extends HttpServlet {
   }
 
   private String configureEnvDiscovery() {
-
+    // WebSphere-specific code removed for Java 21 compatibility
+    // Return generic server environment information
     String serverEnv = "";
-
-    serverEnv += com.ibm.websphere.runtime.ServerName.getDisplayName();
-    serverEnv += com.ibm.websphere.runtime.ServerName.getFullName();
-
+    serverEnv += System.getProperty("java.version");
+    serverEnv += " - " + System.getProperty("java.vendor");
     return serverEnv;
   }
 
   private InitialContext setInitialContextProps() {
+    // Using generic types for Hashtable
+    Hashtable<String, String> ht = new Hashtable<>();
 
-    Hashtable ht = new Hashtable();
-
-    ht.put("java.naming.factory.initial", "com.ibm.websphere.naming.WsnInitialContextFactory");
-    ht.put("java.naming.provider.url", "corbaloc:iiop:localhost:2809");
+    // Generic JNDI configuration (WebSphere-specific removed)
+    ht.put("java.naming.factory.initial", "org.apache.naming.java.javaURLContextFactory");
+    ht.put("java.naming.provider.url", "localhost");
 
     InitialContext ctx = null;
     try {
