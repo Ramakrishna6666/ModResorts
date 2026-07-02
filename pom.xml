@@ -64,11 +64,11 @@
       <version>2.14.1</version>
     </dependency>
 
-   
+    <!-- PostgreSQL JDBC Driver -->
     <dependency>
-      <groupId>commons-collections</groupId>
-      <artifactId>commons-collections</artifactId>
-      <version>3.2.1</version>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <version>42.7.1</version>
     </dependency>
 
     
