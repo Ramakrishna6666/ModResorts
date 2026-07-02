@@ -2,14 +2,14 @@ package com.acme.modres;
 
 import java.io.IOException;
 
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.Filter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.FilterConfig;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 // Assisted by WCA for GP
 // Latest GenAI contribution: granite-20B-code-instruct-v2 model
@@ -28,15 +28,15 @@ public class FirstFilter implements Filter {
     HttpServletResponse res = (HttpServletResponse) response;
     res.setContentType("text/plain");
     String user = req.getParameter("user");
-    if (user == null) {
-      user = "defaultUser";
+    if (user != null && !user.isEmpty()) {
+      chain.doFilter(request, response);
+    } else {
+      res.getWriter().println("User parameter is required");
     }
-    res.getWriter().print("Welcome " + user);
-    chain.doFilter(request, response);
   }
 
   @Override
   public void destroy() {
-    // Clean up resources used by the filter
+    // Clean up resources
   }
 }

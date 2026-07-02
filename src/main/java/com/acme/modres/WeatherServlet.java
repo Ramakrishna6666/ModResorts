@@ -17,13 +17,13 @@ import java.util.Hashtable;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import javax.servlet.ServletException;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 import javax.management.InstanceAlreadyExistsException;
 import javax.management.InstanceNotFoundException;
 import javax.management.IntrospectionException;
@@ -37,7 +37,7 @@ import javax.management.ObjectName;
 import javax.management.ReflectionException;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
-import javax.servlet.annotation.WebServlet;
+import jakarta.servlet.annotation.WebServlet;
 
 @WebServlet({ "/resorts/weather" })
 public class WeatherServlet extends HttpServlet {
@@ -250,27 +250,27 @@ public class WeatherServlet extends HttpServlet {
   }
 
   private String configureEnvDiscovery() {
-
+    // Removed WebSphere-specific ServerName API calls
+    // Return generic server environment information
     String serverEnv = "";
-
-    serverEnv += com.ibm.websphere.runtime.ServerName.getDisplayName();
-    serverEnv += com.ibm.websphere.runtime.ServerName.getFullName();
-
+    serverEnv += "Server: " + System.getProperty("java.vm.name", "Unknown");
+    serverEnv += ", Version: " + System.getProperty("java.version", "Unknown");
     return serverEnv;
   }
 
   private InitialContext setInitialContextProps() {
 
-    Hashtable ht = new Hashtable();
+    Hashtable<String, String> ht = new Hashtable<>();
 
-    ht.put("java.naming.factory.initial", "com.ibm.websphere.naming.WsnInitialContextFactory");
-    ht.put("java.naming.provider.url", "corbaloc:iiop:localhost:2809");
+    // Generic JNDI properties - can be customized for specific application servers
+    ht.put("java.naming.factory.initial", "org.apache.naming.java.javaURLContextFactory");
+    ht.put("java.naming.provider.url", "localhost");
 
     InitialContext ctx = null;
     try {
       ctx = new InitialContext(ht);
     } catch (NamingException e) {
-      e.printStackTrace();
+      logger.log(Level.WARNING, "Could not create InitialContext", e);
     }
 
     return ctx;
