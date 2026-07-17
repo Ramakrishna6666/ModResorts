@@ -5,7 +5,8 @@
   <groupId>com.acme.modres</groupId>
   <artifactId>modresorts</artifactId>
   <version>2.0.0</version>
-  <packaging>war</packaging>
+  <!-- blocker-15, blocker-16: Changed packaging from 'war' to 'jar' for executable JAR with embedded Tomcat -->
+  <packaging>jar</packaging>
   <name>ModResorts</name>
   <properties>
     <maven.compiler.target>1.8</maven.compiler.target>
@@ -13,6 +14,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.version>2.0.0</project.version>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+    <aws.sdk.version>2.20.56</aws.sdk.version>
   </properties>
   <dependencies>
     <dependency>
@@ -21,11 +23,17 @@
       <version>7.0</version>
       <scope>provided</scope>
     </dependency>
+    <!-- blocker-8, blocker-9: Spring Boot replaces EJB 2.x container -->
     <dependency>
-      <groupId>com.ibm.websphere.appserver</groupId>
-      <artifactId>was_public</artifactId>
-      <version>9.0.0</version>
-      <scope>provided</scope>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+      <version>2.7.18</version>
+    </dependency>
+    <!-- blocker-15, blocker-16: Embedded Tomcat included via spring-boot-starter-web -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-tomcat</artifactId>
+      <version>2.7.18</version>
     </dependency>
     <dependency>
       <groupId>com.google.code.gson</groupId>
@@ -57,51 +65,73 @@
       <scope>test</scope>
     </dependency>
 
-   
     <dependency>
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-core</artifactId>
       <version>2.14.1</version>
     </dependency>
 
-   
     <dependency>
       <groupId>commons-collections</groupId>
       <artifactId>commons-collections</artifactId>
       <version>3.2.1</version>
     </dependency>
 
-    
     <dependency>
       <groupId>org.springframework</groupId>
       <artifactId>spring-webmvc</artifactId>
       <version>5.3.17</version>
     </dependency>
 
-   
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
       <version>2.9.10</version>
     </dependency>
 
+    <!-- blocker-1, blocker-2, blocker-4: AWS SDK S3 for cloud-native file storage -->
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>s3</artifactId>
+      <version>${aws.sdk.version}</version>
+    </dependency>
+
+    <!-- blocker-7: AWS Secrets Manager for externalized secrets -->
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>secretsmanager</artifactId>
+      <version>${aws.sdk.version}</version>
+    </dependency>
+
+    <!-- AWS SDK core (required by S3 and Secrets Manager) -->
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>aws-core</artifactId>
+      <version>${aws.sdk.version}</version>
+    </dependency>
+
+    <!-- blocker-8, blocker-9: Spring Data JPA for replacing EJB persistence -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-jpa</artifactId>
+      <version>2.7.18</version>
+    </dependency>
+
   </dependencies>
   <build>
     <plugins>
+      <!-- blocker-15, blocker-16: Spring Boot Maven plugin creates executable JAR with embedded Tomcat -->
       <plugin>
-        <artifactId>maven-war-plugin</artifactId>
-        <version>3.1.0</version>
-        <configuration>
-          <failOnMissingWebXml>false</failOnMissingWebXml>
-          <packagingExcludes>pom.xml, src/, target/, WebContent/</packagingExcludes>
-          <warSourceDirectory>WebContent</warSourceDirectory>
-          <webResources>
-            <resource>
-              <directory>src/main/resources</directory>
-              <targetPath>WEB-INF/classes</targetPath>
-            </resource>
-          </webResources>
-        </configuration>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <version>2.7.18</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>repackage</goal>
+            </goals>
+          </execution>
+        </executions>
       </plugin>
       <plugin>
         <artifactId>maven-resources-plugin</artifactId>

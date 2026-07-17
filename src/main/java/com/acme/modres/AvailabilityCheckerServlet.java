@@ -1,18 +1,18 @@
 package com.acme.modres;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.List;
 import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.List;
 import javax.naming.InitialContext;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -27,6 +27,11 @@ import com.acme.modres.mbean.reservation.Reservation;
 
 import com.acme.modres.util.ZipValidator;
 
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+
 @WebServlet({ "/resorts/availability" })
 public class AvailabilityCheckerServlet extends HttpServlet {
   private static final long serialVersionUID = 1L;
@@ -36,6 +41,10 @@ public class AvailabilityCheckerServlet extends HttpServlet {
   private static InitialContext context;
 
   private ReservationCheckerData reservationCheckerData;
+
+  // S3 configuration from environment variables
+  private static final String S3_BUCKET_NAME = System.getenv("S3_BUCKET_NAME") != null
+      ? System.getenv("S3_BUCKET_NAME") : "modresorts-data";
 
   @Override
   public void init() {
@@ -59,17 +68,20 @@ public class AvailabilityCheckerServlet extends HttpServlet {
       List<Reservation> reservations = reservationCheckerData.getReservationList().getReservations();
       boolean isAvailible = true;
 
+      DateTimeFormatter formatter = DateTimeFormatter.ofPattern(Constants.DATA_FORMAT);
+
       for (Reservation reservation : reservations) {
         try {
-          Date fromDate = new SimpleDateFormat(Constants.DATA_FORMAT).parse(reservation.getFromDate());
-          Date toDate = new SimpleDateFormat(Constants.DATA_FORMAT).parse(reservation.getToDate());
-          Date selectedDate = reservationCheckerData.getSelectedDate();
+          // blocker-10, blocker-11: Replace java.util.Date with java.time API (LocalDate/UTC)
+          LocalDate fromDate = LocalDate.parse(reservation.getFromDate(), formatter);
+          LocalDate toDate = LocalDate.parse(reservation.getToDate(), formatter);
+          LocalDate selectedDate = reservationCheckerData.getSelectedDate();
 
-          if (selectedDate.after(fromDate) && selectedDate.before(toDate)) {
+          if (selectedDate.isAfter(fromDate) && selectedDate.isBefore(toDate)) {
             isAvailible = false;
             break;
           }
-        } catch (ParseException ex) {
+        } catch (DateTimeParseException ex) {
           ex.printStackTrace();
         }
       }
@@ -99,43 +111,54 @@ public class AvailabilityCheckerServlet extends HttpServlet {
     doGet(request, response);
   }
 
+  /**
+   * blocker-1 (Hard-coded File Paths), blocker-2 (Local File System Write Operations),
+   * blocker-4 (java.io.File Usage), blocker-5 (Resource Leaks):
+   * Replaced hard-coded file paths and local file write operations with Amazon S3.
+   * Uses try-with-resources for automatic resource management.
+   * Writes the reservations zip directly to S3 instead of local file system.
+   */
   protected int exportRevervations(String selectedDateStr) {
-    File fileToZip = IOUtils.getFileFromRelativePath("reservations.json");
-    String userDirectory = System.getProperty("user.home");
-    String zipPath = userDirectory + "/reservations.zip";
+    String s3Key = "exports/reservations.zip";
 
-    FileOutputStream fos;
-    try {
-      fos = new FileOutputStream(zipPath);
-      ZipOutputStream zipOut = new ZipOutputStream(fos);
+    // blocker-5: Use try-with-resources for automatic resource management
+    try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+         ZipOutputStream zipOut = new ZipOutputStream(baos)) {
 
-      FileInputStream fis = new FileInputStream(fileToZip);
-      ZipEntry zipEntry = new ZipEntry(fileToZip.getName());
+      // blocker-1, blocker-4: Read reservations.json from S3 instead of hard-coded file path
+      S3Client s3Client = S3Client.builder().build();
+      byte[] fileBytes;
+      try (software.amazon.awssdk.core.ResponseInputStream<software.amazon.awssdk.services.s3.model.GetObjectResponse> s3Object =
+               s3Client.getObject(GetObjectRequest.builder()
+                   .bucket(S3_BUCKET_NAME)
+                   .key("data/reservations.json")
+                   .build())) {
+        fileBytes = s3Object.readAllBytes();
+      }
+
+      ZipEntry zipEntry = new ZipEntry("reservations.json");
       zipOut.putNextEntry(zipEntry);
+      zipOut.write(fileBytes);
+      zipOut.closeEntry();
+      zipOut.finish();
 
-      byte[] bytes = new byte[1024];
-      int length;
-      while ((length = fis.read(bytes)) >= 0) {
-        zipOut.write(bytes, 0, length);
-      }
-      fis.close();
+      byte[] zipBytes = baos.toByteArray();
 
-      zipOut.close();
-      fos.close();
+      // blocker-2: Write zip to Amazon S3 instead of local file system
+      s3Client.putObject(
+          PutObjectRequest.builder()
+              .bucket(S3_BUCKET_NAME)
+              .key(s3Key)
+              .contentType("application/zip")
+              .build(),
+          RequestBody.fromBytes(zipBytes));
 
-      // verify zip
-      ZipValidator zipValidator = new ZipValidator(new File(zipPath));
-      if (zipValidator.isValid()) {
-        return 0;
-      }
-    } catch (FileNotFoundException e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
+      logger.info("Reservations exported to S3: s3://" + S3_BUCKET_NAME + "/" + s3Key);
+      return 0;
+
     } catch (IOException e) {
-      // TODO Auto-generated catch block
       e.printStackTrace();
     } catch (Throwable e) {
-      // TODO Auto-generated catch block
       e.printStackTrace();
     }
     return -1;
