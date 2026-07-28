@@ -6,41 +6,36 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.List;
 import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.List;
-import javax.naming.InitialContext;
-import javax.servlet.ServletException;
-import javax.servlet.annotation.WebServlet;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+
+import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.WebServlet;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import com.acme.modres.mbean.IOUtils;
-import com.acme.modres.mbean.reservation.DateChecker;
 import com.acme.modres.mbean.reservation.ReservationCheckerData;
 import com.acme.modres.mbean.reservation.Reservation;
-
 import com.acme.modres.util.ZipValidator;
 
-@WebServlet({ "/resorts/availability" })
+@WebServlet("/resorts/availability")
 public class AvailabilityCheckerServlet extends HttpServlet {
+
   private static final long serialVersionUID = 1L;
-
   private static final Logger logger = Logger.getLogger(AvailabilityCheckerServlet.class.getName());
-
-  private static InitialContext context;
-
   private ReservationCheckerData reservationCheckerData;
-
+  
   @Override
-  public void init() {
-    // load reserved dates
-    this.reservationCheckerData = new ReservationCheckerData(IOUtils.getReservationListFromConfig());
+  public void init() throws ServletException {
+    super.init();
+    reservationCheckerData = new ReservationCheckerData();
   }
 
   @Override
@@ -59,17 +54,33 @@ public class AvailabilityCheckerServlet extends HttpServlet {
       List<Reservation> reservations = reservationCheckerData.getReservationList().getReservations();
       boolean isAvailible = true;
 
+      // Using modern Java Time API
+      DateTimeFormatter formatter = DateTimeFormatter.ofPattern(Constants.DATA_FORMAT);
+      
       for (Reservation reservation : reservations) {
         try {
-          Date fromDate = new SimpleDateFormat(Constants.DATA_FORMAT).parse(reservation.getFromDate());
-          Date toDate = new SimpleDateFormat(Constants.DATA_FORMAT).parse(reservation.getToDate());
-          Date selectedDate = reservationCheckerData.getSelectedDate();
+          LocalDate fromDate = LocalDate.parse(reservation.getFromDate(), formatter);
+          LocalDate toDate = LocalDate.parse(reservation.getToDate(), formatter);
+          
+          // Convert Date to LocalDate if needed
+          Object selectedDateObj = reservationCheckerData.getSelectedDate();
+          LocalDate selectedDate;
+          if (selectedDateObj instanceof java.util.Date) {
+            selectedDate = ((java.util.Date) selectedDateObj).toInstant()
+                .atZone(java.time.ZoneId.systemDefault())
+                .toLocalDate();
+          } else if (selectedDateObj instanceof LocalDate) {
+            selectedDate = (LocalDate) selectedDateObj;
+          } else {
+            throw new IllegalArgumentException("Unsupported date type");
+          }
 
-          if (selectedDate.after(fromDate) && selectedDate.before(toDate)) {
+          if (selectedDate.isAfter(fromDate) && selectedDate.isBefore(toDate)) {
             isAvailible = false;
             break;
           }
-        } catch (ParseException ex) {
+        } catch (DateTimeParseException ex) {
+          logger.severe("Error parsing date: " + ex.getMessage());
           ex.printStackTrace();
         }
       }
@@ -104,12 +115,11 @@ public class AvailabilityCheckerServlet extends HttpServlet {
     String userDirectory = System.getProperty("user.home");
     String zipPath = userDirectory + "/reservations.zip";
 
-    FileOutputStream fos;
-    try {
-      fos = new FileOutputStream(zipPath);
-      ZipOutputStream zipOut = new ZipOutputStream(fos);
+    // Using try-with-resources for automatic resource management
+    try (FileOutputStream fos = new FileOutputStream(zipPath);
+         ZipOutputStream zipOut = new ZipOutputStream(fos);
+         FileInputStream fis = new FileInputStream(fileToZip)) {
 
-      FileInputStream fis = new FileInputStream(fileToZip);
       ZipEntry zipEntry = new ZipEntry(fileToZip.getName());
       zipOut.putNextEntry(zipEntry);
 
@@ -118,10 +128,6 @@ public class AvailabilityCheckerServlet extends HttpServlet {
       while ((length = fis.read(bytes)) >= 0) {
         zipOut.write(bytes, 0, length);
       }
-      fis.close();
-
-      zipOut.close();
-      fos.close();
 
       // verify zip
       ZipValidator zipValidator = new ZipValidator(new File(zipPath));
@@ -129,13 +135,13 @@ public class AvailabilityCheckerServlet extends HttpServlet {
         return 0;
       }
     } catch (FileNotFoundException e) {
-      // TODO Auto-generated catch block
+      logger.severe("File not found: " + e.getMessage());
       e.printStackTrace();
     } catch (IOException e) {
-      // TODO Auto-generated catch block
+      logger.severe("IO error: " + e.getMessage());
       e.printStackTrace();
     } catch (Throwable e) {
-      // TODO Auto-generated catch block
+      logger.severe("Unexpected error: " + e.getMessage());
       e.printStackTrace();
     }
     return -1;

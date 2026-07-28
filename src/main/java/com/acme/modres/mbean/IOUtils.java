@@ -9,37 +9,27 @@ import java.io.OutputStream;
 import com.acme.modres.mbean.reservation.ReservationList;
 import com.acme.modres.util.JsonInputStream;
 
-public final class IOUtils {
+public class IOUtils {
 
   public static File getFileFromRelativePath(String path) {
-    File file = null;
-    InputStream initialStream = null;
-    OutputStream outStream = null;
-    try {
-      initialStream = IOUtils.class.getClassLoader().getResourceAsStream(path);
-      byte[] buffer = new byte[initialStream.available()];
-      initialStream.read(buffer);
-
-      file = File.createTempFile(path, null);
-      outStream = new FileOutputStream(file);
-      outStream.write(buffer);
-      outStream.close();
-    } catch (Exception e) {
-      e.printStackTrace();
-    } finally {
-      if (initialStream != null) {
-        try {
-          initialStream.close();
-        } catch (IOException e) {
+    File file = new File(System.getProperty("user.dir") + File.separator + path);
+    
+    if (!file.exists()) {
+      try (InputStream initialStream = IOUtils.class.getClassLoader().getResourceAsStream(path)) {
+        if (initialStream == null) {
+          throw new IOException("Resource not found: " + path);
         }
-      } else if (outStream != null) {
-        try {
-          outStream.close();
-        } catch (IOException e) {
+        
+        byte[] buffer = initialStream.readAllBytes();
+        
+        try (OutputStream outStream = new FileOutputStream(file)) {
+          outStream.write(buffer);
         }
+      } catch (IOException e) {
+        e.printStackTrace();
       }
     }
-
+    
     return file;
   }
 

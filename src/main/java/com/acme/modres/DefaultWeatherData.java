@@ -3,6 +3,7 @@ package com.acme.modres;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -76,14 +77,11 @@ public class DefaultWeatherData {
       if (inputStream != null) {
         inputStream.close();
       }
-      inputStream = null;
     }
-
-    String resultStr = new String(out.toByteArray(), "UTF-8");
-    logger.log(Level.FINEST, "resultStr: " + resultStr);
+    
+    String resultStr = new String(out.toByteArray(), StandardCharsets.UTF_8);
     out = null;
     return resultStr;
-
   }
 
 }

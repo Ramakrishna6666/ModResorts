@@ -19,33 +19,23 @@ public class JsonInputStream extends FileInputStream {
   }
 
   public Object parseJsonAs(Class<?> cls) {
-    if (file.exists()) {
-      JsonInputStream is = null;
-      Object jsonObject = null;
-      try {
-        is = new JsonInputStream(file);
-        Gson gson = new Gson();
-        BufferedReader reader = new BufferedReader(new InputStreamReader(is));
-        jsonObject = gson.fromJson(reader, cls);
-      } catch (Exception e) {
-        e.printStackTrace();
-      } catch (Throwable e) {
-        e.printStackTrace();
-      } finally {
-        if (is != null) {
-          try {
-            is.close();
-            is.read(); // test if file is closed
-          } catch (IOException e) {
-            // closed successfully
-            return jsonObject;
-          } catch (Throwable e) {
-            e.printStackTrace();
-          }
-        }
-      }
+    if (!file.exists()) {
+      return null;
     }
-    return null;
+    
+    // Using try-with-resources for proper resource management
+    try (JsonInputStream is = new JsonInputStream(file);
+         BufferedReader reader = new BufferedReader(new InputStreamReader(is))) {
+      
+      Gson gson = new Gson();
+      return gson.fromJson(reader, cls);
+      
+    } catch (IOException e) {
+      e.printStackTrace();
+      return null;
+    } catch (Exception e) {
+      e.printStackTrace();
+      return null;
+    }
   }
-
 }

@@ -1,14 +1,25 @@
 package com.acme.modres.mbean.reservation;
 
-import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.Date;
+import java.util.logging.Logger;
 
 import com.acme.modres.Constants;
+import com.acme.modres.mbean.IOUtils;
 
 public class ReservationCheckerData {
+  private static final Logger logger = Logger.getLogger(ReservationCheckerData.class.getName());
+  
   private ReservationList reservations;
-  private Date selectedDate;
+  private Object selectedDate; // Can be Date or LocalDate for backward compatibility
   private boolean available; // changed from Boolean to boolean
+
+  public ReservationCheckerData() {
+    this.reservations = IOUtils.getReservationListFromConfig();
+    this.available = true;
+  }
 
   public ReservationCheckerData(ReservationList reservations) {
     this.reservations = reservations;
@@ -19,17 +30,20 @@ public class ReservationCheckerData {
     return reservations;
   }
 
-  public Date getSelectedDate() {
+  public Object getSelectedDate() {
     return selectedDate;
   }
 
   public boolean setSelectedDate(String dateStr) {
     try {
-      selectedDate = new SimpleDateFormat(Constants.DATA_FORMAT).parse(dateStr);
-    } catch (Exception e) {
+      // Try to parse using modern Java Time API
+      DateTimeFormatter formatter = DateTimeFormatter.ofPattern(Constants.DATA_FORMAT);
+      selectedDate = LocalDate.parse(dateStr, formatter);
+      return true;
+    } catch (DateTimeParseException e) {
+      logger.warning("Failed to parse date: " + dateStr);
       return false;
     }
-    return true;
   }
 
   public boolean isAvailible() {
