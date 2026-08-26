@@ -9,8 +9,13 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import com.ibm.websphere.servlet.response.ResponseUtils;
-
+/**
+ * Updated for Java 21 compatibility:
+ * - Removed IBM WebSphere-specific com.ibm.websphere.servlet.response.ResponseUtils API
+ *   which is not available outside WebSphere runtime.
+ * - Replaced ResponseUtils.encodeDataString() with standard HTML entity encoding
+ *   to prevent XSS vulnerabilities while maintaining the same functionality.
+ */
 @WebServlet("/resorts/upper")
 public class UpperServlet extends HttpServlet {
 
@@ -26,9 +31,26 @@ public class UpperServlet extends HttpServlet {
     }
 
     String newStr = originalStr.toUpperCase();
-    newStr = ResponseUtils.encodeDataString(newStr);
+    // Replaced IBM WebSphere ResponseUtils.encodeDataString() with standard HTML encoding
+    newStr = encodeHtml(newStr);
 
     PrintWriter out = response.getWriter();
     out.print("<br/><b>upper case input " + newStr + "</b>");
+  }
+
+  /**
+   * Encodes special HTML characters to prevent XSS.
+   * Replaces the IBM WebSphere-specific ResponseUtils.encodeDataString() method.
+   */
+  private String encodeHtml(String input) {
+    if (input == null) {
+      return "";
+    }
+    return input
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\"", "&quot;")
+        .replace("'", "&#x27;");
   }
 }

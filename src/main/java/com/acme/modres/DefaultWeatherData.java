@@ -3,9 +3,15 @@ package com.acme.modres;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+/**
+ * Updated for Java 21 compatibility:
+ * - Replaced deprecated String(byte[], String) with String(byte[], StandardCharsets.UTF_8)
+ *   (Rule: JAVA8_TO_21_DATE_TIME_CHANGES / general Java 21 best practices)
+ */
 public class DefaultWeatherData {
 
   final static Logger logger = Logger.getLogger(DefaultWeatherData.class.getName());
@@ -79,7 +85,8 @@ public class DefaultWeatherData {
       inputStream = null;
     }
 
-    String resultStr = new String(out.toByteArray(), "UTF-8");
+    // Updated: replaced deprecated new String(bytes, "UTF-8") with StandardCharsets.UTF_8
+    String resultStr = new String(out.toByteArray(), StandardCharsets.UTF_8);
     logger.log(Level.FINEST, "resultStr: " + resultStr);
     out = null;
     return resultStr;

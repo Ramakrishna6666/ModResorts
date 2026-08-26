@@ -39,6 +39,13 @@ import javax.naming.InitialContext;
 import javax.naming.NamingException;
 import javax.servlet.annotation.WebServlet;
 
+/**
+ * Updated for Java 21 compatibility:
+ * - Removed IBM WebSphere-specific com.ibm.websphere.runtime.ServerName API calls
+ *   which are not available outside WebSphere runtime (JAVA8_TO_21_SPRING_BOOT_COMPATIBILITY)
+ * - Replaced raw Hashtable with parameterized Hashtable<String, String>
+ *   (JAVA8_TO_21_DEPENDENCY_UPDATES / unchecked warnings)
+ */
 @WebServlet({ "/resorts/weather" })
 public class WeatherServlet extends HttpServlet {
   private static final long serialVersionUID = 1L;
@@ -249,19 +256,31 @@ public class WeatherServlet extends HttpServlet {
     return "*********" + lastToKeep;
   }
 
+  /**
+   * Updated for Java 21: Removed IBM WebSphere-specific
+   * com.ibm.websphere.runtime.ServerName API calls.
+   * These APIs are not available outside of WebSphere runtime and cause
+   * compilation failures in standard Java 21 environments.
+   * (Rule: JAVA8_TO_21_SPRING_BOOT_COMPATIBILITY)
+   */
   private String configureEnvDiscovery() {
-
+    // Removed IBM WebSphere-specific ServerName API calls:
+    // com.ibm.websphere.runtime.ServerName.getDisplayName() - WebSphere-only API
+    // com.ibm.websphere.runtime.ServerName.getFullName() - WebSphere-only API
+    // Use standard Java system properties instead
     String serverEnv = "";
-
-    serverEnv += com.ibm.websphere.runtime.ServerName.getDisplayName();
-    serverEnv += com.ibm.websphere.runtime.ServerName.getFullName();
-
+    serverEnv += System.getProperty("server.name", "");
     return serverEnv;
   }
 
+  /**
+   * Updated for Java 21: replaced raw Hashtable with parameterized
+   * Hashtable<String, String> to eliminate unchecked warnings.
+   * (Rule: JAVA8_TO_21_DEPENDENCY_UPDATES)
+   */
   private InitialContext setInitialContextProps() {
 
-    Hashtable ht = new Hashtable();
+    Hashtable<String, String> ht = new Hashtable<>();
 
     ht.put("java.naming.factory.initial", "com.ibm.websphere.naming.WsnInitialContextFactory");
     ht.put("java.naming.provider.url", "corbaloc:iiop:localhost:2809");

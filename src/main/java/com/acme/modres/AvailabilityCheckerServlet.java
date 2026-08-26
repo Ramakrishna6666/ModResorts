@@ -6,13 +6,14 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.List;
 import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.List;
+
 import javax.naming.InitialContext;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -27,6 +28,12 @@ import com.acme.modres.mbean.reservation.Reservation;
 
 import com.acme.modres.util.ZipValidator;
 
+/**
+ * Updated for Java 21 compatibility:
+ * - Replaced legacy java.util.Date and SimpleDateFormat with java.time.LocalDate
+ *   and DateTimeFormatter for thread-safe, modern date handling.
+ *   (Rule: JAVA8_TO_21_DATE_TIME_CHANGES)
+ */
 @WebServlet({ "/resorts/availability" })
 public class AvailabilityCheckerServlet extends HttpServlet {
   private static final long serialVersionUID = 1L;
@@ -59,17 +66,19 @@ public class AvailabilityCheckerServlet extends HttpServlet {
       List<Reservation> reservations = reservationCheckerData.getReservationList().getReservations();
       boolean isAvailible = true;
 
+      DateTimeFormatter formatter = DateTimeFormatter.ofPattern(Constants.DATA_FORMAT);
+      LocalDate selectedDate = reservationCheckerData.getSelectedLocalDate();
+
       for (Reservation reservation : reservations) {
         try {
-          Date fromDate = new SimpleDateFormat(Constants.DATA_FORMAT).parse(reservation.getFromDate());
-          Date toDate = new SimpleDateFormat(Constants.DATA_FORMAT).parse(reservation.getToDate());
-          Date selectedDate = reservationCheckerData.getSelectedDate();
+          LocalDate fromDate = LocalDate.parse(reservation.getFromDate(), formatter);
+          LocalDate toDate = LocalDate.parse(reservation.getToDate(), formatter);
 
-          if (selectedDate.after(fromDate) && selectedDate.before(toDate)) {
+          if (selectedDate.isAfter(fromDate) && selectedDate.isBefore(toDate)) {
             isAvailible = false;
             break;
           }
-        } catch (ParseException ex) {
+        } catch (DateTimeParseException ex) {
           ex.printStackTrace();
         }
       }
